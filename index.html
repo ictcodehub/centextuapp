@@ -186,9 +186,9 @@ HANYA berikan hasil teks soal akhir. Dilarang memberikan penjelasan, basa-basi, 
               };
               
               const ENDING_INSTRUCTIONS = {
-                'titik-titik': 'WAJIB: Akhiri kalimat dengan empat buah titik ("....") untuk format soal isian. Jangan gunakan tanda tanya.',
-                'tanya': 'WAJIB: Akhiri kalimat dengan tanda tanya ("?") karena ini adalah kalimat pertanyaan langsung.',
-                'titik': 'WAJIB: Akhiri kalimat dengan satu titik (".") untuk format soal instruksi atau pernyataan. Jangan gunakan tanda tanya.'
+                'titik-titik': 'Ubah menjadi kalimat rumpang (isian). WAJIB diakhiri dengan empat titik ("...."). DILARANG menggunakan tanda tanya.',
+                'tanya': 'Ubah menjadi kalimat tanya langsung. WAJIB diakhiri dengan tanda tanya ("?").',
+                'titik': 'Ubah menjadi instruksi atau pernyataan (contoh: "Jelaskan...", "Sebutkan...", "Bantu aku..."). JANGAN buat kalimat tanya. WAJIB diakhiri dengan satu titik (".").'
               };
               
               const POV_INSTRUCTIONS = {
@@ -198,7 +198,7 @@ HANYA berikan hasil teks soal akhir. Dilarang memberikan penjelasan, basa-basi, 
                 'pov2': 'WAJIB: Gunakan sudut pandang orang kedua ("kamu" atau "kalian") seolah-olah siswa yang sedang mengerjakan soal ini yang berada langsung di dalam cerita tersebut.'
               };
               
-              const userPrompt = `PRESET AKTIF:\n${activePresetObj.label}\n\nINSTRUKSI KHUSUS PRESET:\n${activePresetObj.promptExtra}\n\nATURAN PANJANG SOAL:\n${LENGTH_INSTRUCTIONS[lengthLevel]}\n\nATURAN GAYA NARASI/POV:\n${POV_INSTRUCTIONS[povStyle]}\n\nATURAN AKHIRAN KALIMAT:\n${ENDING_INSTRUCTIONS[endingStyle]}\n\nINPUT SOAL:\n${inputText}`;
+              const userPrompt = `INPUT SOAL MENTAH:\n"${inputText}"\n\n=== IKUTI ATURAN DI BAWAH INI SECARA KETAT ===\n1. PRESET (${activePresetObj.label}): ${activePresetObj.promptExtra}\n2. PANJANG SOAL: ${LENGTH_INSTRUCTIONS[lengthLevel]}\n3. POV/NARASI: ${POV_INSTRUCTIONS[povStyle]}\n4. FORMAT AKHIRAN (SANGAT FATAL): ${ENDING_INSTRUCTIONS[endingStyle]}`;
 
               const payload = {
                 model: apiModel,
@@ -211,11 +211,19 @@ HANYA berikan hasil teks soal akhir. Dilarang memberikan penjelasan, basa-basi, 
 
               try {
                 const result = await generateWithRetry(payload);
-                const text = result.choices?.[0]?.message?.content;
+                let text = result.choices?.[0]?.message?.content;
                 
                 if (isActive) {
                   if (text) {
-                    setOutputText(text.trim());
+                    text = text.trim();
+                    
+                    // Lapis Ke-2: Post-processing untuk garansi 100% akhiran selalu akurat
+                    text = text.replace(/[\?\.\s]+$/, ''); // Hapus paksa semua tanda baca di akhir
+                    if (endingStyle === 'titik') text += '.';
+                    else if (endingStyle === 'titik-titik') text += '....';
+                    else if (endingStyle === 'tanya') text += '?';
+
+                    setOutputText(text);
                   } else {
                     throw new Error("Format respons tidak valid dari AI.");
                   }
